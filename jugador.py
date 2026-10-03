@@ -1,0 +1,49 @@
+import pygame
+
+
+class Jugador:
+
+    def __init__(self, x, y):
+        # Tamaño del jugador
+        self.ancho = 60
+        self.alto = 70
+
+        # Rectángulo que representa al jugador
+        self.rect = pygame.Rect(
+            x,
+            y,
+            self.ancho,
+            self.alto
+        )
+
+        # Velocidad horizontal
+        self.velocidad = 7
+
+    def mover(self, teclas, ancho_pantalla):
+
+        # Mover a la izquierda
+        if teclas[pygame.K_LEFT] or teclas[pygame.K_a]:
+            self.rect.x -= self.velocidad
+
+        # Mover a la derecha
+        if teclas[pygame.K_RIGHT] or teclas[pygame.K_d]:
+            self.rect.x += self.velocidad
+
+        # Evitar salir por la izquierda
+        if self.rect.left < 0:
+            self.rect.left = 0
+
+        # Evitar salir por la derecha
+        if self.rect.right > ancho_pantalla:
+            self.rect.right = ancho_pantalla
+
+    def dibujar(self, pantalla):
+
+        # Por ahora usamos un rectángulo azul.
+        # Después aquí colocaremos jugador.png
+        pygame.draw.rect(
+            pantalla,
+            (30, 130, 255),
+            self.rect,
+            border_radius=10
+        )
