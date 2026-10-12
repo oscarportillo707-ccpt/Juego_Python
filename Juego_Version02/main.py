@@ -262,6 +262,11 @@ def pantalla_inicio(pantalla, ancho, alto, reloj, fps):
         # Nave de adorno
         nave.dibujar(pantalla)
 
+        marco = pygame.Rect(30, 30, ANCHO - 60, ALTO - 60)
+        pygame.draw.rect(pantalla, AZUL_APAGADO, marco, 4, border_radius=30)
+
+        
+
  
         # ==================================================
         # PARTE SUPERIOR
