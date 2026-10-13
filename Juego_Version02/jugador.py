@@ -1,4 +1,5 @@
 import os
+import math
 import pygame
 
 
@@ -22,6 +23,11 @@ class Jugador:
 
         # Imagen de la nave 
         self.imagen = pygame.image.load("jugador.png").convert_alpha()
+        pygame.draw.rect(
+            self.imagen,
+            (0, 0, 0, 0),
+            (22, 57, 16, 13)
+        )
 
     def mover(self, teclas, ancho_pantalla):
 
@@ -44,3 +50,27 @@ class Jugador:
         # Dibujar la nave en la pantalla
     def dibujar(self, pantalla):
         pantalla.blit(self.imagen, self.rect)
+
+        tiempo = pygame.time.get_ticks()
+        largo_llama = 8 + int((math.sin(tiempo * 0.025) + 1) * 3)
+        centro_x = self.rect.centerx
+        inicio_y = self.rect.y + 57
+
+        pygame.draw.polygon(
+            pantalla,
+            (255, 145, 20),
+            [
+                (centro_x - 6, inicio_y),
+                (centro_x, inicio_y + largo_llama),
+                (centro_x + 6, inicio_y)
+            ]
+        )
+        pygame.draw.polygon(
+            pantalla,
+            (255, 235, 60),
+            [
+                (centro_x - 3, inicio_y),
+                (centro_x, inicio_y + largo_llama // 2),
+                (centro_x + 3, inicio_y)
+            ]
+        )

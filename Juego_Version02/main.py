@@ -2,6 +2,7 @@ import pygame
 import sys
 import random
 import math
+import os
 
 from jugador import Jugador
 from moneda import Moneda
@@ -14,7 +15,23 @@ from ambiente import Ambiente
 # INICIALIZAR PYGAME
 # ==========================================================
 
+## sonidos de la nave y de los meteoritos
+
 pygame.init()
+
+carpeta_sonidos = os.path.join(
+    os.path.dirname(__file__),
+    "sonidos"
+)
+sonido_moneda = pygame.mixer.Sound(
+    os.path.join(carpeta_sonidos, "Points.mp3")
+)
+sonido_meteorito = pygame.mixer.Sound(
+    os.path.join(carpeta_sonidos, "Error.mp3")
+)
+pygame.mixer.music.load(
+    os.path.join(carpeta_sonidos, "Ambientación_Jueguito.mp3")
+)
 
 
 # ==========================================================
@@ -382,6 +399,8 @@ if not pantalla_inicio(pantalla, ANCHO, ALTO, reloj, FPS):
     pygame.quit()
     sys.exit()
 
+pygame.mixer.music.play(loops=-1)
+
 
 # ==========================================================
 # FUNCIÓN PARA CREAR UNA PARTIDA NUEVA
@@ -622,6 +641,7 @@ while ejecutando:
             ):
                 
                 puntos += 1
+                sonido_moneda.play()
 
                 ambiente.efecto_moneda(
                     moneda.rect.centerx,
@@ -657,6 +677,8 @@ while ejecutando:
             if jugador.rect.colliderect(
                 obstaculo.rect
             ):
+
+                sonido_meteorito.play()
 
                 # Quitar una vida
                 vidas -= 1
@@ -867,6 +889,7 @@ while ejecutando:
 # CERRAR PYGAME
 # ==========================================================
 
+pygame.mixer.music.stop()
 pygame.quit()
 
 sys.exit()
