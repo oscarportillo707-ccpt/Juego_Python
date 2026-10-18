@@ -41,7 +41,7 @@ sonido_meteorito = pygame.mixer.Sound(
     os.path.join(carpeta_sonidos, "Error.mp3")
 )
 pygame.mixer.music.load(
-    os.path.join(carpeta_sonidos, "Ambientación_Jueguito.mp3")
+    os.path.join(carpeta_sonidos, "Ambientacion_Jueguito.mp3")
 )
 
 # Música más suave para que se escuchen los efectos
