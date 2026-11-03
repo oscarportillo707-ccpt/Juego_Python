@@ -1,0 +1,28 @@
+# ==========================================================
+# ARCHIVOS QUE GIT NO DEBE SUBIR
+# ==========================================================
+#
+# Son archivos que se crean solos en cada computadora.
+# Si se suben, causan conflictos en cada pull / push.
+
+
+# Caché de Python (se vuelve a crear al ejecutar el juego)
+__pycache__/
+*.pyc
+
+# PyInstaller (.exe de Windows): carpetas que genera al compilar
+build/
+dist/
+
+# Buildozer (.apk de Android): carpetas que genera al compilar
+.buildozer/
+bin/
+*.apk
+*.aab
+
+# Visual Studio (configuración personal del editor)
+.vs/
+
+# Progreso del jugador (récord y trofeos de cada uno)
+# El juego lo crea solo si no existe.
+progreso.json
