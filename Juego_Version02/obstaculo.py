@@ -1,8 +1,17 @@
 import pygame
 import random
 
+from rutas import ruta_recurso
+
 
 class Obstaculo:
+
+    # Probabilidad de que un meteorito caiga en zigzag
+    # (la cambia el modo de juego)
+    PROBABILIDAD_ZIGZAG = 0
+
+    # Ancho de la pantalla, para rebotar en los bordes
+    ANCHO_PANTALLA = 600
 
     def __init__(self, x, y):
         # Tamaño base del obstáculo
@@ -18,11 +27,12 @@ class Obstaculo:
             self.alto
         )
 
-        # Posición vertical como decimal
+        # Posición como decimal
+        self.x = float(x)
         self.y = float(y)
 
         # Imagen del obstáculo
-        self.imagen_original = pygame.image.load("meteorito.png").convert_alpha()
+        self.imagen_original = pygame.image.load(ruta_recurso("meteorito.png")).convert_alpha()
         self.imagen = self.imagen_original
 
         # Cada meteorito es distinto
@@ -52,12 +62,35 @@ class Obstaculo:
         self.rect.size = (self.ancho, self.alto)
         self.rect.centerx = centro_x
 
+        self.x = float(self.rect.x)
+
+        # Movimiento de lado a lado (zigzag)
+        if random.random() < self.PROBABILIDAD_ZIGZAG:
+            self.deriva = random.choice([-1, 1]) * random.uniform(1, 2.2)
+        else:
+            self.deriva = 0
+
     def actualizar(self, velocidad):
 
         # Actualizar posición vertical
         self.y += velocidad * self.factor_velocidad
 
         self.rect.y = int(self.y)
+
+        # Zigzag: rebota en los bordes de la pantalla
+        if self.deriva != 0:
+
+            self.x += self.deriva
+
+            if self.x < 0:
+                self.x = 0
+                self.deriva = -self.deriva
+
+            if self.x > self.ANCHO_PANTALLA - self.ancho:
+                self.x = self.ANCHO_PANTALLA - self.ancho
+                self.deriva = -self.deriva
+
+            self.rect.x = int(self.x)
 
         # Girar
         self.angulo = (self.angulo + self.giro) % 360
@@ -79,6 +112,7 @@ class Obstaculo:
         self.rect.x = nueva_x
         self.rect.y = nueva_y
 
+        self.x = float(nueva_x)
         self.y = float(nueva_y)
 
     def esta_fuera(self, alto_pantalla):

@@ -80,4 +80,61 @@ def cargar_sonidos_extra():
         "pausa": crear_sonido([
             (880, 0.05), (0, 0.03), (660, 0.08)
         ], 0.2),
+
+        # Moverse por los menús
+        "mover": crear_sonido([
+            (990, 0.04)
+        ], 0.15),
+
+        # Elegir una opción
+        "elegir": crear_sonido([
+            (660, 0.05), (990, 0.08)
+        ], 0.2),
+
+        # Intentar entrar a un modo bloqueado
+        "bloqueado": crear_sonido([
+            (180, 0.08), (0, 0.03), (150, 0.12)
+        ], 0.3),
+
+        # Nuevo modo desbloqueado
+        "desbloqueo": crear_sonido([
+            (392, 0.1), (523, 0.1), (659, 0.1), (784, 0.1),
+            (0, 0.05), (1047, 0.12), (1319, 0.35)
+        ], 0.3),
+
+        # Sirena del jefe
+        "alerta": crear_sonido([
+            (620, 0.22), (820, 0.22), (620, 0.22), (820, 0.22),
+            (620, 0.22), (820, 0.22)
+        ], 0.22),
+
+        # Disparo del jefe
+        "disparo": crear_sonido([
+            (900, 0.03), (500, 0.05)
+        ], 0.12),
+
+        # Rayo del jefe
+        "laser": crear_sonido([
+            (220, 0.08), (240, 0.08), (220, 0.08), (240, 0.08), (220, 0.15)
+        ], 0.22),
+
+        # Disparo de la nave
+        "disparo_nave": crear_sonido([
+            (1400, 0.02), (1000, 0.03)
+        ], 0.07),
+
+        # Meteorito destruido por una bala
+        "meteorito_roto": crear_sonido([
+            (300, 0.04), (180, 0.08)
+        ], 0.25),
+
+        # Bala que pega en el jefe
+        "impacto_jefe": crear_sonido([
+            (500, 0.02), (350, 0.03)
+        ], 0.12),
+
+        # El jefe se va (explosión)
+        "explosion": crear_sonido([
+            (160, 0.08), (120, 0.1), (90, 0.12), (60, 0.25)
+        ], 0.4),
     }

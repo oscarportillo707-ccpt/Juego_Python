@@ -11,11 +11,12 @@ class Potenciador:
     # "corazon"       = devuelve una vida
     # "escudo"        = protege de los meteoritos por unos segundos
     # "iman"          = atrae las monedas por unos segundos
+    # "arma"          = la nave dispara por 10 segundos
 
-    TIPOS = ["moneda_grande", "corazon", "escudo", "iman"]
+    TIPOS = ["moneda_grande", "corazon", "escudo", "iman", "arma"]
 
     # Probabilidad de aparición de cada tipo
-    PESOS = [40, 20, 20, 20]
+    PESOS = [35, 18, 17, 17, 13]
 
     def __init__(self, ancho_pantalla, tipo=None):
 
@@ -62,6 +63,7 @@ class Potenciador:
             "corazon": (255, 80, 110, 70),
             "escudo": (80, 200, 255, 70),
             "iman": (200, 90, 255, 70),
+            "arma": (255, 150, 40, 80),
         }
 
         aura = pygame.Surface(
@@ -89,6 +91,32 @@ class Potenciador:
 
         elif self.tipo == "iman":
             self.dibujar_iman(pantalla, cx, cy)
+
+        elif self.tipo == "arma":
+            self.dibujar_arma(pantalla, cx, cy)
+
+    def dibujar_arma(self, pantalla, cx, cy):
+
+        # Cañón apuntando hacia arriba
+        pygame.draw.rect(pantalla, (90, 95, 110), (cx - 9, cy - 4, 18, 18), border_radius=4)
+        pygame.draw.rect(pantalla, (200, 205, 220), (cx - 4, cy - 17, 8, 16), border_radius=2)
+        pygame.draw.rect(pantalla, (255, 150, 40), (cx - 9, cy + 8, 18, 5), border_radius=2)
+
+        # Balas a los lados (suben y bajan un poco)
+        salto = int(math.sin(self.fase * 2) * 2)
+
+        for lado in (-1, 1):
+
+            bx = cx + lado * 14
+            by = cy - 6 + salto * lado
+
+            pygame.draw.ellipse(pantalla, (255, 210, 70), (bx - 3, by - 7, 6, 14))
+            pygame.draw.rect(pantalla, (220, 120, 30), (bx - 3, by + 3, 6, 4))
+
+        # Fogonazo en la punta
+        if math.sin(self.fase * 3) > 0.3:
+
+            pygame.draw.circle(pantalla, (255, 230, 120), (cx, cy - 19), 4)
 
     def dibujar_moneda_grande(self, pantalla, cx, cy):
 

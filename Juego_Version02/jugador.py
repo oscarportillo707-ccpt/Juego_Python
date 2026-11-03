@@ -1,11 +1,54 @@
 import os
 import math
+import colorsys
 import pygame
+
+from rutas import ruta_recurso
+
+
+def teñir_imagen(imagen, tinte):
+
+    # Cambia el color de las partes azules de la nave.
+    #
+    # tinte = (tono, saturación, brillo extra)
+    # Los colores que no son azules (llamas, cabina...) no cambian.
+
+    tono, saturacion, brillo_extra = tinte
+
+    nueva = imagen.copy()
+
+    for x in range(nueva.get_width()):
+
+        for y in range(nueva.get_height()):
+
+            r, g, b, a = nueva.get_at((x, y))
+
+            if a == 0:
+                continue
+
+            h, s, v = colorsys.rgb_to_hsv(r / 255, g / 255, b / 255)
+
+            # Solo los tonos azules con color
+            if s < 0.2 or not (0.45 <= h <= 0.75):
+                continue
+
+            h = tono
+
+            if saturacion is not None:
+                s = s * saturacion
+
+            v = min(1, v + brillo_extra)
+
+            r, g, b = colorsys.hsv_to_rgb(h, s, v)
+
+            nueva.set_at((x, y), (int(r * 255), int(g * 255), int(b * 255), a))
+
+    return nueva
 
 
 class Jugador:
 
-    def __init__(self, x, y):
+    def __init__(self, x, y, tinte=None):
         # Tamaño del jugador
         self.ancho = 60
         self.alto = 70
@@ -22,12 +65,16 @@ class Jugador:
         self.velocidad = 7
 
         # Imagen de la nave 
-        self.imagen = pygame.image.load("jugador.png").convert_alpha()
+        self.imagen = pygame.image.load(ruta_recurso("jugador.png")).convert_alpha()
         pygame.draw.rect(
             self.imagen,
             (0, 0, 0, 0),
             (22, 57, 16, 13)
         )
+
+        # Color de la nave
+        if tinte is not None:
+            self.imagen = teñir_imagen(self.imagen, tinte)
 
         # Tiempo de la partida (en segundos)
         self.tiempo_juego = 0
@@ -36,6 +83,7 @@ class Jugador:
         self.invulnerable_hasta = 0
         self.escudo_hasta = 0
         self.iman_hasta = 0
+        self.arma_hasta = 0
 
     # ======================================================
     # EFECTOS ESPECIALES
@@ -69,6 +117,22 @@ class Jugador:
     def tiene_iman(self):
 
         return self.tiempo_juego < self.iman_hasta
+
+    def activar_arma(self, duracion=10):
+
+        self.arma_hasta = self.tiempo_juego + duracion
+
+    def tiene_arma(self):
+
+        return self.tiempo_juego < self.arma_hasta
+
+    def puntos_de_disparo(self):
+
+        # Las dos puntas de las alas, de donde salen las balas
+        return [
+            (self.rect.left + 9, self.rect.top + 30),
+            (self.rect.right - 9, self.rect.top + 30)
+        ]
 
     def mover(self, teclas, ancho_pantalla):
 
@@ -118,6 +182,19 @@ class Jugador:
             return
 
         pantalla.blit(self.imagen, self.rect)
+
+        # Cañones en las alas mientras dura el arma
+        if self.tiene_arma():
+
+            restante = self.arma_hasta - self.tiempo_juego
+
+            # Parpadean cuando el arma está por terminarse
+            if restante > 1.5 or (tiempo // 100) % 2 == 0:
+
+                for x, y in self.puntos_de_disparo():
+
+                    pygame.draw.rect(pantalla, (90, 95, 110), (x - 4, y - 2, 8, 16), border_radius=2)
+                    pygame.draw.rect(pantalla, (255, 150, 40), (x - 4, y - 6, 8, 6), border_radius=2)
 
         # Burbuja del escudo
         if self.tiene_escudo():

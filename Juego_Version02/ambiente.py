@@ -74,6 +74,46 @@ class Ambiente:
 
         self.tiempo = 0
 
+        # ==================================================
+        # TEMA (cambia según el modo de juego)
+        # ==================================================
+
+        self.tema = "basico"
+
+    # ======================================================
+    # CAMBIAR EL TEMA
+    # ======================================================
+
+    # Colores del fondo de cada tema: lista de (arriba, abajo)
+    COLORES_TEMAS = {
+        "basico": [
+            ((8, 12, 40), (25, 50, 90)),      # Azul oscuro
+            ((25, 8, 45), (70, 25, 80)),      # Morado oscuro
+            ((5, 8, 30), (15, 35, 70)),       # Azul profundo
+        ],
+        "medio": [
+            ((22, 6, 40), (80, 30, 110)),     # Nebulosa morada
+            ((10, 6, 35), (55, 20, 95)),      # Violeta profundo
+            ((30, 8, 45), (110, 35, 100)),    # Magenta oscuro
+        ],
+        "avanzado": [
+            ((20, 2, 6), (85, 15, 20)),       # Rojo oscuro
+            ((8, 0, 4), (55, 8, 25)),         # Casi negro
+            ((25, 4, 2), (110, 30, 10)),      # Rojo fuego
+        ],
+    }
+
+    # Color de la luz alrededor de la nave
+    LUZ_TEMAS = {
+        "basico": (80, 150, 255),
+        "medio": (170, 100, 255),
+        "avanzado": (255, 90, 60),
+    }
+
+    def cambiar_tema(self, tema):
+
+        self.tema = tema
+
     # ======================================================
     # ACTUALIZAR AMBIENTE
     # ======================================================
@@ -152,25 +192,14 @@ class Ambiente:
         tiempo = self.tiempo
 
         # Ciclo visual
-        fase = (tiempo / 30) % 3
+        fase = int((tiempo / 30) % 3)
 
-        if fase < 1:
+        colores = self.COLORES_TEMAS.get(
+            self.tema,
+            self.COLORES_TEMAS["basico"]
+        )
 
-            # Azul oscuro
-            color_arriba = (8, 12, 40)
-            color_abajo = (25, 50, 90)
-
-        elif fase < 2:
-
-            # Morado oscuro
-            color_arriba = (25, 8, 45)
-            color_abajo = (70, 25, 80)
-
-        else:
-
-            # Azul profundo
-            color_arriba = (5, 8, 30)
-            color_abajo = (15, 35, 70)
+        color_arriba, color_abajo = colores[fase]
 
         return color_arriba, color_abajo
 
@@ -311,6 +340,11 @@ class Ambiente:
         centro_x = jugador.rect.centerx
         centro_y = jugador.rect.centery
 
+        luz = self.LUZ_TEMAS.get(
+            self.tema,
+            self.LUZ_TEMAS["basico"]
+        )
+
         # Crear varios círculos transparentes
         for radio in range(180, 20, -20):
 
@@ -321,9 +355,7 @@ class Ambiente:
             pygame.draw.circle(
                 capa,
                 (
-                    80,
-                    150,
-                    255,
+                    *luz,
                     transparencia
                 ),
                 (

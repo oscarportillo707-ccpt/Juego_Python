@@ -21,6 +21,18 @@ from progreso import (
 
 from sonidos_extra import cargar_sonidos_extra
 
+from modos import (
+    MODOS,
+    ORDEN_MODOS,
+    COLORES_NAVE,
+    tinte_nave
+)
+
+from jefe import Jefe
+from rutas import ruta_recurso
+from musica import ruta_musica
+from pantallas import pantalla_modos, pantalla_logros, total_trofeos
+
 
 # ==========================================================
 # INICIALIZAR PYGAME
@@ -30,10 +42,7 @@ from sonidos_extra import cargar_sonidos_extra
 
 pygame.init()
 
-carpeta_sonidos = os.path.join(
-    os.path.dirname(__file__),
-    "sonidos"
-)
+carpeta_sonidos = ruta_recurso("sonidos")
 sonido_moneda = pygame.mixer.Sound(
     os.path.join(carpeta_sonidos, "Points.mp3")
 )
@@ -65,12 +74,17 @@ progreso = cargar_progreso()
 ANCHO = 600
 ALTO = 700
 
+# Icono de la ventana (la nave en órbita)
+pygame.display.set_icon(
+    pygame.image.load(ruta_recurso("icono.png"))
+)
+
 pantalla = pygame.display.set_mode(
     (ANCHO, ALTO)
 )
 
 pygame.display.set_caption(
-    "Juego de Monedas"
+    "Expedición 33"
 )
 
 
@@ -219,16 +233,23 @@ def dibujar_nave(pantalla, x, y, tiempo):
  
 def pantalla_inicio(pantalla, ancho, alto, reloj, fps):
  
-    # Devuelve True si el jugador elige SÍ (empezar el juego)
-    # y False si elige NO, presiona ESC o cierra la ventana.
- 
+    # Devuelve "jugar" si el jugador elige SÍ, "logros" si elige
+    # LOGROS y False si elige NO, presiona ESC o cierra la ventana.
+
     # Fuentes
     fuente_titulo = pygame.font.Font(None, 170)
     fuente = pygame.font.Font(None, 48)
     fuente_pequena = pygame.font.Font(None, 28)
- 
-    # Opción seleccionada: 0 = SÍ, 1 = NO
+
+    # Opción seleccionada: 0 = SÍ, 1 = LOGROS, 2 = NO
     opcion = 0
+
+    # Mejor récord de todos los modos y trofeos ganados
+    mejor_record = max(
+        progreso["modos"][modo]["record"] for modo in ORDEN_MODOS
+    )
+
+    trofeos_ganados, trofeos_totales = total_trofeos(progreso)
  
     # Meteoritos de adorno cayendo detrás del menú
     meteoritos = []
@@ -259,19 +280,34 @@ def pantalla_inicio(pantalla, ancho, alto, reloj, fps):
                 # Cambiar de opción
                 if evento.key in (
                     pygame.K_LEFT,
-                    pygame.K_RIGHT,
                     pygame.K_UP,
-                    pygame.K_DOWN,
                     pygame.K_a,
+                    pygame.K_w
+                ):
+                    opcion = (opcion - 1) % 3
+                    sonidos["mover"].play()
+
+                if evento.key in (
+                    pygame.K_RIGHT,
+                    pygame.K_DOWN,
                     pygame.K_d,
-                    pygame.K_w,
                     pygame.K_s
                 ):
-                    opcion = 1 - opcion
- 
+                    opcion = (opcion + 1) % 3
+                    sonidos["mover"].play()
+
                 # Confirmar
                 if evento.key in (pygame.K_RETURN, pygame.K_SPACE):
-                    return opcion == 0
+
+                    sonidos["elegir"].play()
+
+                    if opcion == 0:
+                        return "jugar"
+
+                    if opcion == 1:
+                        return "logros"
+
+                    return False
  
                 # Salir
                 if evento.key == pygame.K_ESCAPE:
@@ -314,7 +350,7 @@ def pantalla_inicio(pantalla, ancho, alto, reloj, fps):
         # ==================================================
  
         texto_nombre = fuente_pequena.render(
-            "JUEGO DE MONEDAS",
+            "EXPEDICIÓN 33",
             True,
             CREMA
         )
@@ -322,12 +358,20 @@ def pantalla_inicio(pantalla, ancho, alto, reloj, fps):
         pantalla.blit(texto_nombre, (60, 60))
 
         texto_record = fuente_pequena.render(
-            f"RÉCORD: {progreso['record']}",
+            f"RÉCORD: {mejor_record}",
             True,
             NARANJA
         )
 
         pantalla.blit(texto_record, (60, 88))
+
+        texto_trofeos = fuente_pequena.render(
+            f"TROFEOS: {trofeos_ganados}/{trofeos_totales}",
+            True,
+            NARANJA
+        )
+
+        pantalla.blit(texto_trofeos, (60, 116))
 
         # Corazones (las 3 vidas del juego)
         for i in range(3):
@@ -374,11 +418,11 @@ def pantalla_inicio(pantalla, ancho, alto, reloj, fps):
             texto_listo.get_rect(center=(ancho // 2, 410))
         )
  
-        opciones = ["SÍ", "NO"]
- 
-        posiciones = [ancho // 2 - 100, ancho // 2 + 100]
- 
-        for i in range(2):
+        opciones = ["SÍ", "LOGROS", "NO"]
+
+        posiciones = [ancho // 2 - 160, ancho // 2 - 10, ancho // 2 + 150]
+
+        for i in range(3):
  
             if i == opcion:
                 color = CREMA
@@ -404,20 +448,6 @@ def pantalla_inicio(pantalla, ancho, alto, reloj, fps):
                     ]
                 )
  
-        # ==================================================
-        # TROFEOS GANADOS
-        # ==================================================
-
-        dibujar_coleccion(
-            pantalla,
-            ancho // 2,
-            135,
-            0.42,
-            progreso["trofeos"],
-            None,
-            separacion=45
-        )
-
         texto_ayuda = fuente_pequena.render(
             "Flechas para elegir   -   ENTER para confirmar",
             True,
@@ -438,22 +468,85 @@ def pantalla_inicio(pantalla, ancho, alto, reloj, fps):
         reloj.tick(fps)
 
 # ==========================================================
+# MENÚS: INICIO, LOGROS Y ELEGIR MODO
+# ==========================================================
+
+def flujo_menu(modo_inicial):
+
+    # Muestra el menú hasta que el jugador elige un modo.
+    # Devuelve el modo elegido o None si quiere salir.
+
+    pygame.mixer.music.stop()
+
+    while True:
+
+        resultado = pantalla_inicio(pantalla, ANCHO, ALTO, reloj, FPS)
+
+        if not resultado:
+            return None
+
+        if resultado == "logros":
+
+            pantalla_logros(pantalla, reloj, FPS, progreso, sonidos)
+            continue
+
+        modo = pantalla_modos(
+            pantalla, reloj, FPS, progreso, sonidos, modo_inicial
+        )
+
+        # ESC en la pantalla de modos vuelve al inicio
+        if modo is not None:
+            return modo
+
+
+def iniciar_musica(modo):
+
+    pygame.mixer.music.load(ruta_musica(modo))
+
+    # Las canciones de los modos Medio y Avanzado suenan más fuerte
+    if modo == "basico":
+        pygame.mixer.music.set_volume(0.4)
+    else:
+        pygame.mixer.music.set_volume(0.3)
+
+    pygame.mixer.music.play(loops=-1)
+
+
+def aplicar_modo(modo):
+
+    # Ajusta todo lo que depende del modo de juego
+    global modo_actual, config
+
+    modo_actual = modo
+    config = MODOS[modo]
+
+    Obstaculo.PROBABILIDAD_ZIGZAG = config["probabilidad_zigzag"]
+    Obstaculo.ANCHO_PANTALLA = ANCHO
+
+    Potenciador.PESOS = config["pesos_potenciadores"]
+
+    ambiente.cambiar_tema(modo)
+
+
+# ==========================================================
 # MOSTRAR LA PANTALLA DE INICIO
 # ==========================================================
 
-if not pantalla_inicio(pantalla, ANCHO, ALTO, reloj, FPS):
+modo_actual = "basico"
+config = MODOS[modo_actual]
+
+modo_elegido = flujo_menu("basico")
+
+if modo_elegido is None:
     pygame.quit()
     sys.exit()
 
-pygame.mixer.music.play(loops=-1)
+aplicar_modo(modo_elegido)
 
 
 # ==========================================================
 # REGLAS DE LA PARTIDA
 # ==========================================================
-
-VIDAS_INICIALES = 3
-VIDAS_MAXIMAS = 5
 
 # Cada cuántos puntos se sube de nivel
 PUNTOS_POR_NIVEL = 25
@@ -462,17 +555,20 @@ PUNTOS_POR_NIVEL = 25
 MONEDAS_POR_COMBO = 5
 MULTIPLICADOR_MAXIMO = 5
 
-# Cantidad de meteoritos
-OBSTACULOS_INICIALES = 3
-OBSTACULOS_MAXIMOS = 8
-
 # Cada cuántos segundos aparece un meteorito más
 SEGUNDOS_POR_OBSTACULO = 20
 
-# Duración de los efectos (segundos)
+# Duración de la invulnerabilidad después de un golpe
 DURACION_INVULNERABLE = 1.5
-DURACION_ESCUDO = 5
-DURACION_IMAN = 6
+
+# Jefe: aparece desde los puntos del modo y luego cada 100
+PUNTOS_POR_JEFE = 100
+PREMIO_JEFE = 25
+
+# Arma: la nave dispara sola mientras dura
+DURACION_ARMA = 10
+CADENCIA_DISPARO = 0.15
+VELOCIDAD_BALA = 12
 
 # Lienzo donde se dibuja el juego (para poder sacudir la pantalla)
 lienzo = pygame.Surface((ANCHO, ALTO))
@@ -484,6 +580,12 @@ fuente_trofeo = pygame.font.Font(None, 58)
 # ==========================================================
 # FUNCIONES DE AYUDA
 # ==========================================================
+
+def datos_modo():
+
+    # Récord y trofeos del modo que se está jugando
+    return progreso["modos"][modo_actual]
+
 
 def lugar_libre(rect, otros):
 
@@ -547,12 +649,13 @@ def agregar_texto_flotante(texto, x, y, color):
 def iniciar_juego():
 
     # --------------------------
-    # Jugador
+    # Jugador (con el color elegido)
     # --------------------------
 
     jugador = Jugador(
         ANCHO // 2 - 30,
-        SUELO - 70
+        SUELO - 70,
+        tinte_nave(progreso["color_nave"], modo_actual)
     )
 
 
@@ -562,7 +665,7 @@ def iniciar_juego():
 
     obstaculos = []
 
-    for i in range(OBSTACULOS_INICIALES):
+    for i in range(config["obstaculos_iniciales"]):
 
         x = random.randint(
             0,
@@ -620,7 +723,7 @@ def iniciar_juego():
     # Vidas
     # --------------------------
 
-    vidas = VIDAS_INICIALES
+    vidas = config["vidas"]
 
 
     # --------------------------
@@ -670,6 +773,8 @@ def iniciar_juego():
     tiempo_inicio
 ) = iniciar_juego()
 
+iniciar_musica(modo_actual)
+
 
 # Estado del juego:
 # "jugando", "pausa", "trofeo" o "game_over"
@@ -678,7 +783,7 @@ estado = "jugando"
 # Momento en que empezó la pausa (o el trofeo)
 inicio_pausa = 0
 
-# Trofeo que se está mostrando: (datos del trofeo, es_nuevo)
+# Trofeo que se está mostrando
 trofeo_mostrado = None
 
 # Textos que suben y desaparecen ("+1", "+5", "ESCUDO"...)
@@ -691,12 +796,20 @@ mensaje_nivel_hasta = 0
 # Sacudida de la pantalla
 temblor = 0
 
+# Jefe
+jefe = None
+proximo_jefe = config["puntos_primer_jefe"]
+
+# Balas de la nave
+balas = []
+siguiente_bala = 0
+
 # Datos del Game Over
 nuevo_record = False
 opcion_game_over = 0
 
 tiempo_transcurrido = 0
-velocidad_objetos = 3
+velocidad_objetos = config["velocidad_inicial"]
 
 
 # ==========================================================
@@ -732,12 +845,12 @@ def terminar_partida():
     pygame.mixer.music.fadeout(800)
     sonidos["game_over"].play()
 
-    # Guardar el récord
-    nuevo_record = puntos > progreso["record"]
+    # Guardar el récord del modo
+    nuevo_record = puntos > datos_modo()["record"]
 
     if nuevo_record:
 
-        progreso["record"] = puntos
+        datos_modo()["record"] = puntos
         guardar_progreso(progreso)
 
 
@@ -747,7 +860,8 @@ def reiniciar_partida():
     global puntos, vidas, combo, nivel, trofeos_partida
     global siguiente_potenciador, tiempo_inicio
     global estado, textos_flotantes, mensaje_nivel, temblor
-    global opcion_game_over
+    global opcion_game_over, jefe, proximo_jefe
+    global tiempo_transcurrido, balas, siguiente_bala
 
     (
         jugador,
@@ -768,8 +882,81 @@ def reiniciar_partida():
     mensaje_nivel = ""
     temblor = 0
     opcion_game_over = 0
+    jefe = None
+    proximo_jefe = config["puntos_primer_jefe"]
+    tiempo_transcurrido = 0
+    balas = []
+    siguiente_bala = 0
 
-    pygame.mixer.music.play(loops=-1)
+    iniciar_musica(modo_actual)
+
+
+def volver_al_menu():
+
+    # Devuelve False si el jugador decide salir del juego
+    modo = flujo_menu(modo_actual)
+
+    if modo is None:
+        return False
+
+    aplicar_modo(modo)
+    reiniciar_partida()
+
+    return True
+
+
+def golpear_jugador(x, y):
+
+    # El jugador pierde una vida
+    global vidas, combo, temblor
+
+    sonido_meteorito.play()
+
+    vidas -= 1
+
+    # Se pierde el combo
+    combo = 0
+
+    jugador.recibir_golpe(DURACION_INVULNERABLE)
+
+    ambiente.efecto_golpe(x, y)
+
+    # Sacudir la pantalla
+    temblor = 18
+
+    # Si no quedan vidas
+    if vidas <= 0:
+        terminar_partida()
+
+
+def escudo_absorbe(x, y):
+
+    sonidos["escudo"].play()
+
+    ambiente.efecto_golpe(x, y)
+
+
+def modo_que_desbloquea(trofeo):
+
+    # Nombre del modo que se abre con este trofeo (o None)
+    for clave in ORDEN_MODOS:
+
+        if MODOS[clave]["requisito"] == (modo_actual, trofeo):
+            return MODOS[clave]["nombre"]
+
+    return None
+
+
+def colores_que_desbloquea(trofeo):
+
+    nombres = []
+
+    for clave, nombre, tinte, requisito in COLORES_NAVE:
+
+        if requisito == (modo_actual, trofeo):
+            nombres.append(nombre)
+
+    return nombres
 
 
 # ==========================================================
@@ -792,7 +979,7 @@ def dibujar_hud():
 
 
     # Vidas como corazones
-    for i in range(VIDAS_MAXIMAS):
+    for i in range(config["vidas_maximas"]):
 
         if i < vidas:
             color = ROJO
@@ -869,9 +1056,9 @@ def dibujar_hud():
     )
 
 
-    # Mostrar récord
+    # Mostrar récord del modo
     texto_record = fuente_pequeña.render(
-        f"Récord: {max(puntos, progreso['record'])}",
+        f"Récord: {max(puntos, datos_modo()['record'])}",
         True,
         CREMA
     )
@@ -896,12 +1083,26 @@ def dibujar_hud():
             )
 
 
+    # Modo de juego (abajo a la derecha)
+    texto_modo = fuente_pequeña.render(
+        f"MODO {config['nombre']}",
+        True,
+        config["color"]
+    )
+
+    pantalla.blit(
+        texto_modo,
+        texto_modo.get_rect(bottomright=(ANCHO - 20, ALTO - 15))
+    )
+
+
     # Barras de tiempo del escudo y del imán
     y_barra = ALTO - 30
 
     efectos = [
-        ("ESCUDO", jugador.escudo_hasta, DURACION_ESCUDO, (80, 200, 255)),
-        ("IMÁN", jugador.iman_hasta, DURACION_IMAN, (200, 90, 255)),
+        ("ESCUDO", jugador.escudo_hasta, config["duracion_escudo"], (80, 200, 255)),
+        ("IMÁN", jugador.iman_hasta, config["duracion_iman"], (200, 90, 255)),
+        ("DISPARO", jugador.arma_hasta, DURACION_ARMA, (255, 150, 40)),
     ]
 
     for nombre, hasta, duracion, color in efectos:
@@ -913,16 +1114,22 @@ def dibujar_hud():
             texto = fuente_pequeña.render(nombre, True, color)
             pantalla.blit(texto, (20, y_barra - 4))
 
-            pygame.draw.rect(pantalla, GRIS, (110, y_barra, 150, 12), border_radius=6)
+            pygame.draw.rect(pantalla, GRIS, (120, y_barra, 150, 12), border_radius=6)
 
             pygame.draw.rect(
                 pantalla,
                 color,
-                (110, y_barra, int(150 * restante / duracion), 12),
+                (120, y_barra, int(150 * restante / duracion), 12),
                 border_radius=6
             )
 
             y_barra -= 28
+
+
+    # Barra de tiempo del jefe
+    if jefe is not None:
+
+        jefe.dibujar_barra(pantalla)
 
 
     # Mensaje de nuevo nivel
@@ -944,6 +1151,12 @@ def dibujar_hud():
         pantalla.blit(texto, rect)
 
 
+    # Aviso del jefe
+    if jefe is not None:
+
+        jefe.dibujar_alerta(pantalla)
+
+
 def dibujar_pausa():
 
     capa = pygame.Surface((ANCHO, ALTO), pygame.SRCALPHA)
@@ -960,6 +1173,7 @@ def dibujar_pausa():
 
     lineas = [
         "P o ESC para continuar",
+        "M para volver al menú",
         "Q para salir del juego"
     ]
 
@@ -975,10 +1189,10 @@ def dibujar_pausa():
 
 def dibujar_trofeo_ganado():
 
-    datos, es_nuevo = trofeo_mostrado
+    datos, es_nuevo, modo_abierto, colores_nuevos = trofeo_mostrado
     clave, nombre, req, color, sombra_trofeo = datos
 
-    # Fuente para "NIVEL MASTER"
+    # Fuente para "NIVEL MASTER" / "NIVEL LEYENDA"
     fuente_master = pygame.font.Font(None, 48)
 
     segundos = (pygame.time.get_ticks() - inicio_pausa) / 1000
@@ -988,7 +1202,7 @@ def dibujar_trofeo_ganado():
     pantalla.blit(capa, (0, 0))
 
     cx = ANCHO // 2
-    cy = ALTO // 2 - 40
+    cy = ALTO // 2 - 50
 
     # Rayos de luz que giran detrás del trofeo
     rayos = pygame.Surface((ANCHO, ALTO), pygame.SRCALPHA)
@@ -1040,7 +1254,7 @@ def dibujar_trofeo_ganado():
             titulo.get_rect(center=(cx, cy - 195))
         )
 
-        # "NIVEL MASTER" cambia de color como un brillo
+        # "NIVEL MASTER" o "NIVEL LEYENDA" cambia de color como un brillo
         onda = (math.sin(segundos * 4) + 1) / 2
 
         color_master = (
@@ -1049,8 +1263,10 @@ def dibujar_trofeo_ganado():
             255
         )
 
-        sombra_master = fuente_master.render("NIVEL MASTER", True, sombra_trofeo)
-        texto_master = fuente_master.render("NIVEL MASTER", True, color_master)
+        texto_diamante = config["texto_diamante"]
+
+        sombra_master = fuente_master.render(texto_diamante, True, sombra_trofeo)
+        texto_master = fuente_master.render(texto_diamante, True, color_master)
 
         rect_master = texto_master.get_rect(center=(cx, cy - 150))
 
@@ -1066,11 +1282,15 @@ def dibujar_trofeo_ganado():
             titulo.get_rect(center=(cx, cy - 160))
         )
 
-    texto_puntos = fuente.render(f"Llegaste a {req} puntos", True, CREMA)
+    texto_puntos = fuente.render(
+        f"Llegaste a {req} puntos en modo {config['nombre']}",
+        True,
+        CREMA
+    )
 
     pantalla.blit(
         texto_puntos,
-        texto_puntos.get_rect(center=(cx, cy + 150))
+        texto_puntos.get_rect(center=(cx, cy + 145))
     )
 
     if es_nuevo:
@@ -1082,8 +1302,46 @@ def dibujar_trofeo_ganado():
 
     pantalla.blit(
         texto_sub,
-        texto_sub.get_rect(center=(cx, cy + 190))
+        texto_sub.get_rect(center=(cx, cy + 180))
     )
+
+    # Lo que se desbloquea con este trofeo
+    y_extra = cy + 222
+
+    if modo_abierto is not None:
+
+        # Cartel que palpita
+        tamaño = 40 + int(math.sin(segundos * 6) * 3)
+        fuente_desbloqueo = pygame.font.Font(None, tamaño)
+
+        texto = fuente_desbloqueo.render(
+            f"¡MODO {modo_abierto} DESBLOQUEADO!",
+            True,
+            NARANJA
+        )
+
+        rect = texto.get_rect(center=(cx, y_extra))
+
+        fondo = rect.inflate(30, 14)
+
+        pygame.draw.rect(pantalla, (40, 20, 5), fondo, border_radius=12)
+        pygame.draw.rect(pantalla, NARANJA, fondo, 3, border_radius=12)
+
+        pantalla.blit(texto, rect)
+
+        y_extra += 45
+
+    for nombre_color in colores_nuevos:
+
+        texto = fuente_pequeña.render(
+            f"¡Nuevo color de nave: {nombre_color}!",
+            True,
+            (150, 230, 255)
+        )
+
+        pantalla.blit(texto, texto.get_rect(center=(cx, y_extra)))
+
+        y_extra += 28
 
     if segundos > 1:
 
@@ -1095,15 +1353,15 @@ def dibujar_trofeo_ganado():
 
         pantalla.blit(
             texto_seguir,
-            texto_seguir.get_rect(center=(cx, ALTO - 50))
+            texto_seguir.get_rect(center=(cx, ALTO - 35))
         )
 
 
 def dibujar_game_over():
 
-    # Fondo azul semitransparente (mismo estilo que el menú)
+    # Fondo semitransparente del color del modo
     capa = pygame.Surface((ANCHO, ALTO), pygame.SRCALPHA)
-    capa.fill((15, 30, 65, 225))
+    capa.fill((*config["fondo"], 225))
     pantalla.blit(capa, (0, 0))
 
     marco = pygame.Rect(30, 30, ANCHO - 60, ALTO - 60)
@@ -1113,10 +1371,21 @@ def dibujar_game_over():
     sombra = fuente_titulo.render("GAME OVER", True, NARANJA_SOMBRA)
     titulo = fuente_titulo.render("GAME OVER", True, NARANJA)
 
-    rect_titulo = titulo.get_rect(center=(ANCHO // 2, 120))
+    rect_titulo = titulo.get_rect(center=(ANCHO // 2, 115))
 
     pantalla.blit(sombra, rect_titulo.move(5, 5))
     pantalla.blit(titulo, rect_titulo)
+
+    texto_modo = fuente_pequeña.render(
+        f"MODO {config['nombre']}",
+        True,
+        config["color"]
+    )
+
+    pantalla.blit(
+        texto_modo,
+        texto_modo.get_rect(center=(ANCHO // 2, 168))
+    )
 
     # Puntuación final
     texto_final = fuente.render(
@@ -1131,7 +1400,7 @@ def dibujar_game_over():
     )
 
     texto_record = fuente_pequeña.render(
-        f"Récord: {progreso['record']}",
+        f"Récord: {datos_modo()['record']}",
         True,
         AZUL_APAGADO
     )
@@ -1151,7 +1420,7 @@ def dibujar_game_over():
             texto_nuevo.get_rect(center=(ANCHO // 2, 285))
         )
 
-    # Colección de trofeos
+    # Colección de trofeos del modo
     texto_trofeos = fuente_pequeña.render("TROFEOS", True, CREMA)
 
     pantalla.blit(
@@ -1164,7 +1433,7 @@ def dibujar_game_over():
         ANCHO // 2,
         400,
         0.8,
-        progreso["trofeos"],
+        datos_modo()["trofeos"],
         fuente_pequeña
     )
 
@@ -1176,11 +1445,11 @@ def dibujar_game_over():
         texto_otra.get_rect(center=(ANCHO // 2, 505))
     )
 
-    opciones = ["SÍ", "NO"]
+    opciones = ["SÍ", "MENÚ", "NO"]
 
-    posiciones = [ANCHO // 2 - 100, ANCHO // 2 + 100]
+    posiciones = [ANCHO // 2 - 160, ANCHO // 2 - 10, ANCHO // 2 + 150]
 
-    for i in range(2):
+    for i in range(3):
 
         if i == opcion_game_over:
             color = CREMA
@@ -1266,7 +1535,12 @@ while ejecutando:
                     pygame.mixer.music.unpause()
                     sonidos["pausa"].play()
 
-                if evento.key == pygame.K_q:
+                elif evento.key == pygame.K_m:
+
+                    if not volver_al_menu():
+                        ejecutando = False
+
+                elif evento.key == pygame.K_q:
 
                     ejecutando = False
 
@@ -1292,21 +1566,33 @@ while ejecutando:
                 # Cambiar de opción
                 if evento.key in (
                     pygame.K_LEFT,
-                    pygame.K_RIGHT,
                     pygame.K_UP,
-                    pygame.K_DOWN,
                     pygame.K_a,
+                    pygame.K_w
+                ):
+                    opcion_game_over = (opcion_game_over - 1) % 3
+                    sonidos["mover"].play()
+
+                if evento.key in (
+                    pygame.K_RIGHT,
+                    pygame.K_DOWN,
                     pygame.K_d,
-                    pygame.K_w,
                     pygame.K_s
                 ):
-                    opcion_game_over = 1 - opcion_game_over
+                    opcion_game_over = (opcion_game_over + 1) % 3
+                    sonidos["mover"].play()
 
                 # Confirmar
                 if evento.key in (pygame.K_RETURN, pygame.K_SPACE):
 
                     if opcion_game_over == 0:
                         reiniciar_partida()
+
+                    elif opcion_game_over == 1:
+
+                        if not volver_al_menu():
+                            ejecutando = False
+
                     else:
                         ejecutando = False
 
@@ -1377,17 +1663,80 @@ while ejecutando:
         # AUMENTAR VELOCIDAD
         # --------------------------------------------------
 
-        # Empieza lento y aumenta progresivamente.
-        #
-        # 3 = velocidad inicial
-        # 0.08 = cuánto aumenta por segundo
-        # 0.25 = cuánto aumenta por cada nivel
+        # Empieza según el modo y aumenta progresivamente.
+        # Cada nivel suma 0.25 más.
 
         velocidad_objetos = (
-            3
-            + tiempo_transcurrido * 0.08
+            config["velocidad_inicial"]
+            + tiempo_transcurrido * config["aumento_velocidad"]
             + (nivel - 1) * 0.25
         )
+
+
+        # --------------------------------------------------
+        # JEFE (modo Avanzado)
+        # --------------------------------------------------
+
+        if (
+            config["tiene_jefe"]
+            and jefe is None
+            and puntos >= proximo_jefe
+        ):
+
+            jefe = Jefe(ANCHO, ALTO, tiempo_transcurrido, sonidos)
+
+        # Mientras está el jefe no caen meteoritos nuevos
+        jefe_activo = jefe is not None and jefe.esta_activo()
+
+        if jefe is not None:
+
+            jefe.actualizar(tiempo_transcurrido, jugador.rect)
+
+            golpe = jefe.golpea(jugador.rect)
+
+            if golpe is not None:
+
+                if jugador.tiene_escudo():
+                    escudo_absorbe(*golpe)
+
+                elif not jugador.es_invulnerable():
+                    golpear_jugador(*golpe)
+
+            # Premio por sobrevivir
+            if estado == "jugando" and jefe.premio_pendiente():
+
+                puntos += PREMIO_JEFE
+
+                agregar_texto_flotante(
+                    "¡SOBREVIVISTE!",
+                    ANCHO // 2,
+                    jefe.y,
+                    NARANJA
+                )
+
+                agregar_texto_flotante(
+                    f"+{PREMIO_JEFE}",
+                    ANCHO // 2,
+                    jefe.y + 40,
+                    AMARILLO
+                )
+
+                if vidas < config["vidas_maximas"]:
+
+                    vidas += 1
+
+                    agregar_texto_flotante(
+                        "+1 VIDA",
+                        jugador.rect.centerx,
+                        jugador.rect.top - 20,
+                        ROJO
+                    )
+
+            if jefe.terminado():
+
+                jefe = None
+
+                proximo_jefe = (puntos // PUNTOS_POR_JEFE + 1) * PUNTOS_POR_JEFE
 
 
         # --------------------------------------------------
@@ -1395,12 +1744,12 @@ while ejecutando:
         # --------------------------------------------------
 
         cantidad_obstaculos = min(
-            OBSTACULOS_MAXIMOS,
-            OBSTACULOS_INICIALES
+            config["obstaculos_maximos"],
+            config["obstaculos_iniciales"]
             + int(tiempo_transcurrido // SEGUNDOS_POR_OBSTACULO)
         )
 
-        while len(obstaculos) < cantidad_obstaculos:
+        while len(obstaculos) < cantidad_obstaculos and not jefe_activo:
 
             nuevo = Obstaculo(0, 0)
 
@@ -1496,6 +1845,13 @@ while ejecutando:
 
         for obstaculo in obstaculos:
 
+            if estado != "jugando":
+                break
+
+            # Durante el jefe, los que están arriba esperan
+            if jefe_activo and obstaculo.rect.bottom < 0:
+                continue
+
             obstaculo.actualizar(
                 velocidad_objetos
             )
@@ -1518,9 +1874,7 @@ while ejecutando:
                 # Con escudo: el meteorito se destruye
                 if jugador.tiene_escudo():
 
-                    sonidos["escudo"].play()
-
-                    ambiente.efecto_golpe(
+                    escudo_absorbe(
                         obstaculo.rect.centerx,
                         obstaculo.rect.centery
                     )
@@ -1537,23 +1891,10 @@ while ejecutando:
 
                 else:
 
-                    sonido_meteorito.play()
-
-                    # Quitar una vida
-                    vidas -= 1
-
-                    # Se pierde el combo
-                    combo = 0
-
-                    jugador.recibir_golpe(DURACION_INVULNERABLE)
-
-                    ambiente.efecto_golpe(
+                    golpear_jugador(
                         jugador.rect.centerx,
                         jugador.rect.centery
                     )
-
-                    # Sacudir la pantalla
-                    temblor = 18
 
                     # Reiniciar obstáculo
                     reubicar_obstaculo(
@@ -1562,19 +1903,96 @@ while ejecutando:
                     )
 
 
-                    # Si no quedan vidas
-                    if vidas <= 0:
+        # --------------------------------------------------
+        # DISPAROS DE LA NAVE
+        # --------------------------------------------------
 
-                        terminar_partida()
+        if (
+            estado == "jugando"
+            and jugador.tiene_arma()
+            and tiempo_transcurrido >= siguiente_bala
+        ):
 
-                        break
+            siguiente_bala = tiempo_transcurrido + CADENCIA_DISPARO
+
+            # Una bala desde cada ala
+            for x, y in jugador.puntos_de_disparo():
+
+                balas.append({
+                    "x": x,
+                    "y": y - 8
+                })
+
+            sonidos["disparo_nave"].play()
+
+        for bala in balas[:]:
+
+            bala["y"] -= VELOCIDAD_BALA
+
+            rect_bala = pygame.Rect(0, 0, 6, 18)
+            rect_bala.center = (bala["x"], bala["y"])
+
+            # Salió por arriba
+            if rect_bala.bottom < 0:
+
+                balas.remove(bala)
+
+                continue
+
+            acerto = False
+
+            # Contra los meteoritos
+            for obstaculo in obstaculos:
+
+                if obstaculo.rect.bottom > 0 and rect_bala.colliderect(obstaculo.rect):
+
+                    acerto = True
+
+                    puntos += 1
+
+                    sonidos["meteorito_roto"].play()
+
+                    ambiente.efecto_golpe(
+                        obstaculo.rect.centerx,
+                        obstaculo.rect.centery
+                    )
+
+                    agregar_texto_flotante(
+                        "+1",
+                        obstaculo.rect.centerx,
+                        obstaculo.rect.centery,
+                        (255, 170, 60)
+                    )
+
+                    reubicar_obstaculo(
+                        obstaculo,
+                        monedas
+                    )
+
+                    break
+
+            # Contra el jefe (brilla, pero hay que sobrevivir igual)
+            if not acerto and jefe is not None:
+
+                cuerpo = jefe.rect_cuerpo()
+
+                if cuerpo is not None and rect_bala.colliderect(cuerpo):
+
+                    acerto = True
+
+                    jefe.recibir_impacto(bala["x"], cuerpo.bottom - 10)
+
+                    sonidos["impacto_jefe"].play()
+
+            if acerto:
+
+                balas.remove(bala)
 
 
         # --------------------------------------------------
         # OBJETOS ESPECIALES
         # --------------------------------------------------
 
-        # Aparece uno nuevo cada cierto tiempo
         if estado != "jugando":
 
             # Se acabó la partida en este mismo cuadro
@@ -1624,7 +2042,7 @@ while ejecutando:
 
                 elif potenciador.tipo == "corazon":
 
-                    if vidas < VIDAS_MAXIMAS:
+                    if vidas < config["vidas_maximas"]:
 
                         vidas += 1
 
@@ -1639,15 +2057,21 @@ while ejecutando:
 
                 elif potenciador.tipo == "escudo":
 
-                    jugador.activar_escudo(DURACION_ESCUDO)
+                    jugador.activar_escudo(config["duracion_escudo"])
 
                     agregar_texto_flotante("ESCUDO", x, y, (80, 200, 255))
 
                 elif potenciador.tipo == "iman":
 
-                    jugador.activar_iman(DURACION_IMAN)
+                    jugador.activar_iman(config["duracion_iman"])
 
                     agregar_texto_flotante("IMÁN", x, y, (200, 90, 255))
+
+                elif potenciador.tipo == "arma":
+
+                    jugador.activar_arma(DURACION_ARMA)
+
+                    agregar_texto_flotante("¡DISPARO!", x, y, (255, 150, 40))
 
 
         # --------------------------------------------------
@@ -1681,17 +2105,31 @@ while ejecutando:
 
                     trofeos_partida.append(clave)
 
-                    es_nuevo = clave not in progreso["trofeos"]
+                    es_nuevo = clave not in datos_modo()["trofeos"]
+
+                    modo_abierto = None
+                    colores_nuevos = []
 
                     # Guardar el trofeo en el archivo
                     if es_nuevo:
 
-                        progreso["trofeos"].append(clave)
+                        datos_modo()["trofeos"].append(clave)
                         guardar_progreso(progreso)
 
-                    trofeo_mostrado = (datos_trofeo, es_nuevo)
+                        modo_abierto = modo_que_desbloquea(clave)
+                        colores_nuevos = colores_que_desbloquea(clave)
 
-                    sonidos["trofeo"].play()
+                    trofeo_mostrado = (
+                        datos_trofeo,
+                        es_nuevo,
+                        modo_abierto,
+                        colores_nuevos
+                    )
+
+                    if modo_abierto is not None:
+                        sonidos["desbloqueo"].play()
+                    else:
+                        sonidos["trofeo"].play()
 
                     pausar("trofeo")
 
@@ -1766,6 +2204,34 @@ while ejecutando:
         obstaculo.dibujar(
             lienzo
         )
+
+
+    # ======================================================
+    # DIBUJAR JEFE
+    # ======================================================
+
+    if jefe is not None:
+
+        jefe.dibujar(
+            lienzo
+        )
+
+
+    # ======================================================
+    # DIBUJAR BALAS
+    # ======================================================
+
+    for bala in balas:
+
+        x = int(bala["x"])
+        y = int(bala["y"])
+
+        brillo = pygame.Surface((18, 30), pygame.SRCALPHA)
+        pygame.draw.ellipse(brillo, (255, 190, 80, 120), (0, 0, 18, 30))
+        lienzo.blit(brillo, (x - 9, y - 15))
+
+        pygame.draw.ellipse(lienzo, (255, 210, 70), (x - 4, y - 10, 8, 20))
+        pygame.draw.ellipse(lienzo, (255, 255, 230), (x - 2, y - 7, 4, 12))
 
 
     # ======================================================

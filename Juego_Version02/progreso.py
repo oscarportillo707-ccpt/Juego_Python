@@ -3,15 +3,17 @@ import json
 import math
 import pygame
 
+from modos import ORDEN_MODOS
+from rutas import ruta_datos
+
 
 # ==========================================================
 # ARCHIVO DONDE SE GUARDA EL PROGRESO
 # ==========================================================
 
-ARCHIVO_PROGRESO = os.path.join(
-    os.path.dirname(__file__),
-    "progreso.json"
-)
+# Con Python: junto al juego. En el .exe: en AppData
+# (ver rutas.py), para que no se pierda al cerrar.
+ARCHIVO_PROGRESO = ruta_datos("progreso.json")
 
 
 # ==========================================================
@@ -36,11 +38,29 @@ COLOR_BLOQUEADO_SOMBRA = (35, 40, 60)
 
 def cargar_progreso():
 
+    # Cada modo guarda su propio récord y sus trofeos:
+    #
+    # {
+    #     "modos": {
+    #         "basico": {"record": 0, "trofeos": []},
+    #         "medio": {...},
+    #         "avanzado": {...}
+    #     },
+    #     "color_nave": "modo"
+    # }
+
     # Si el archivo no existe o está dañado, empezamos de cero
     progreso = {
-        "record": 0,
-        "trofeos": []
+        "modos": {},
+        "color_nave": "modo"
     }
+
+    for modo in ORDEN_MODOS:
+
+        progreso["modos"][modo] = {
+            "record": 0,
+            "trofeos": []
+        }
 
     try:
 
@@ -48,10 +68,28 @@ def cargar_progreso():
 
             datos = json.load(archivo)
 
-        progreso["record"] = int(datos.get("record", 0))
-        progreso["trofeos"] = list(datos.get("trofeos", []))
+        # Formato viejo (un solo récord): se pasa al modo Básico
+        if "modos" not in datos:
 
-    except (OSError, ValueError):
+            datos = {
+                "modos": {
+                    "basico": {
+                        "record": datos.get("record", 0),
+                        "trofeos": datos.get("trofeos", [])
+                    }
+                }
+            }
+
+        for modo in ORDEN_MODOS:
+
+            guardado = datos["modos"].get(modo, {})
+
+            progreso["modos"][modo]["record"] = int(guardado.get("record", 0))
+            progreso["modos"][modo]["trofeos"] = list(guardado.get("trofeos", []))
+
+        progreso["color_nave"] = str(datos.get("color_nave", "modo"))
+
+    except (OSError, ValueError, AttributeError, TypeError):
         pass
 
     return progreso
