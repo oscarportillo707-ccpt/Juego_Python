@@ -40,7 +40,31 @@ def carpeta_datos():
     #
     # - Con Python: la misma carpeta del juego
     # - En el .exe: C:\Users\<usuario>\AppData\Roaming\Expedicion33
-    if esta_empaquetado():
+    es_android = (
+        sys.platform == "android"
+        or "ANDROID_ARGUMENT" in os.environ
+        or "ANDROID_PRIVATE" in os.environ
+    )
+
+    if es_android:
+
+        try:
+            from android.storage import app_storage_path
+
+            base = app_storage_path()
+
+        except (ImportError, OSError, RuntimeError):
+
+            # Fallback para versiones de python-for-android sin
+            # android.storage: usa la carpeta privada de la aplicacion.
+            base = (
+                os.environ.get("ANDROID_PRIVATE")
+                or os.path.expanduser("~")
+            )
+
+        carpeta = os.path.join(base, NOMBRE_JUEGO)
+
+    elif esta_empaquetado():
 
         base = os.environ.get("APPDATA") or os.path.expanduser("~")
 

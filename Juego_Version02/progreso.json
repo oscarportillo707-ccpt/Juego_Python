@@ -1,17 +1,1 @@
-{
-    "modos": {
-        "basico": {
-            "record": 0,
-            "trofeos": []
-        },
-        "medio": {
-            "record": 0,
-            "trofeos": []
-        },
-        "avanzado": {
-            "record": 0,
-            "trofeos": []
-        }
-    },
-    "color_nave": "modo"
-}
+{}
