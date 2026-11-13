@@ -38,7 +38,12 @@ source.exclude_patterns = *.spec,icono.ico,progreso.json,buildozer.spec
 version = 1.0
 
 # Librerías que necesita el juego
-requirements = python3,pygame
+#
+# Python va fijo en 3.10: la receta de pygame para Android
+# (pygame 2.1.0) no compila con Python 3.11 o más nuevo
+# (error: 'longintrepr.h' file not found).
+# python3 y hostpython3 deben ser la misma versión.
+requirements = python3==3.10.14,hostpython3==3.10.14,pygame
 
 # Icono de la app
 icon.filename = %(source.dir)s/icono.png
@@ -58,10 +63,12 @@ fullscreen = 1
 android.api = 35
 
 # Android mínimo donde se puede instalar (Android 7.0)
-android.minapi = 24
+android.minapi = 21
+# Android 5.0+; el lienzo se escala con pygame.SCALED en celulares y tablets.
 
 # Procesadores: celulares modernos (64 bits) y viejos (32 bits)
-android.archs = arm64-v8a, armeabi-v7a
+android.archs = arm64-v8a, armeabi-v7a, x86_64, x86
+# ARM cubre dispositivos reales; x86 cubre tablets/emuladores antiguos.
 
 # Aceptar licencias del SDK sin preguntar
 android.accept_sdk_license = True

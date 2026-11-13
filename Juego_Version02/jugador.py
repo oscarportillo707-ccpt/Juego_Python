@@ -134,14 +134,14 @@ class Jugador:
             (self.rect.right - 9, self.rect.top + 30)
         ]
 
-    def mover(self, teclas, ancho_pantalla):
+    def mover(self, teclas, ancho_pantalla, tactil_izquierda=False, tactil_derecha=False):
 
         # Mover a la izquierda
-        if teclas[pygame.K_LEFT] or teclas[pygame.K_a]:
+        if teclas[pygame.K_LEFT] or teclas[pygame.K_a] or tactil_izquierda:
             self.rect.x -= self.velocidad
 
         # Mover a la derecha
-        if teclas[pygame.K_RIGHT] or teclas[pygame.K_d]:
+        if teclas[pygame.K_RIGHT] or teclas[pygame.K_d] or tactil_derecha:
             self.rect.x += self.velocidad
 
         # Evitar salir por la izquierda

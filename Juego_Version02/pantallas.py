@@ -22,6 +22,7 @@ from progreso import (
     guardar_progreso,
     dibujar_coleccion
 )
+from controles_tactiles import ControlesTactiles
 
 
 # ==========================================================
@@ -126,6 +127,7 @@ def pantalla_modos(pantalla, reloj, fps, progreso, sonidos, modo_inicial="basico
 
     # Sacudida de la tarjeta bloqueada
     sacudida_hasta = 0
+    controles_menu = ControlesTactiles(ancho, alto)
 
     while True:
 
@@ -142,6 +144,44 @@ def pantalla_modos(pantalla, reloj, fps, progreso, sonidos, modo_inicial="basico
 
             if evento.type == pygame.QUIT:
                 return None
+
+            toque = controles_menu.evento(evento)
+            if toque is not None and toque[0] == "back":
+                return None
+
+            if toque is not None and toque[0] == "swipe":
+                if toque[1] == "izquierda":
+                    seleccion = (seleccion - 1) % len(ORDEN_MODOS)
+                elif toque[1] == "derecha":
+                    seleccion = (seleccion + 1) % len(ORDEN_MODOS)
+                elif toque[1] == "arriba":
+                    indice_color = (indice_color - 1) % len(colores_disponibles)
+                else:
+                    indice_color = (indice_color + 1) % len(colores_disponibles)
+                sonidos["mover"].play()
+                continue
+
+            if toque is not None and toque[0] == "down":
+                _, posicion = toque
+                if 115 <= posicion[1] <= 425:
+                    x_inicio_touch = (ancho - (160 * 3 + 15 * 2)) // 2
+                    indice = max(0, min(len(ORDEN_MODOS) - 1, (posicion[0] - x_inicio_touch) // 175))
+                    if x_inicio_touch <= posicion[0] <= x_inicio_touch + 3 * 160 + 2 * 15:
+                        seleccion = int(indice)
+                        sonidos["mover"].play()
+                elif 515 <= posicion[1] <= 625:
+                    if posicion[1] < 570:
+                        indice_color = (indice_color - 1) % len(colores_disponibles)
+                    else:
+                        indice_color = (indice_color + 1) % len(colores_disponibles)
+                    sonidos["mover"].play()
+                elif posicion[1] > alto - 115:
+                    modo = ORDEN_MODOS[seleccion]
+                    if modo_desbloqueado(progreso, modo):
+                        progreso["color_nave"] = colores_disponibles[indice_color]
+                        guardar_progreso(progreso)
+                        sonidos["elegir"].play()
+                        return modo
 
             if evento.type == pygame.KEYDOWN:
 
@@ -380,6 +420,9 @@ def pantalla_modos(pantalla, reloj, fps, progreso, sonidos, modo_inicial="basico
             texto = fuente_pequena.render(linea, True, AZUL_APAGADO)
             pantalla.blit(texto, texto.get_rect(center=(ancho // 2, alto - 92 + i * 26)))
 
+        texto_tactil = fuente_mini.render("Toca una tarjeta, el color o JUGAR", True, AZUL_APAGADO)
+        pantalla.blit(texto_tactil, texto_tactil.get_rect(center=(ancho // 2, alto - 35)))
+
         pygame.display.flip()
 
         reloj.tick(fps)
@@ -397,6 +440,7 @@ def pantalla_logros(pantalla, reloj, fps, progreso, sonidos):
     fuente = pygame.font.Font(None, 32)
     fuente_pequena = pygame.font.Font(None, 24)
     fuente_mini = pygame.font.Font(None, 18)
+    controles_menu = ControlesTactiles(ancho, alto)
 
     while True:
 
@@ -409,6 +453,11 @@ def pantalla_logros(pantalla, reloj, fps, progreso, sonidos):
         for evento in pygame.event.get():
 
             if evento.type == pygame.QUIT:
+                return
+
+            toque = controles_menu.evento(evento)
+            if toque is not None and toque[0] in ("back", "swipe", "down"):
+                sonidos["elegir"].play()
                 return
 
             if evento.type == pygame.KEYDOWN:
@@ -548,6 +597,9 @@ def pantalla_logros(pantalla, reloj, fps, progreso, sonidos):
 
         texto = fuente_pequena.render("ESC o ENTER para volver", True, AZUL_APAGADO)
         pantalla.blit(texto, texto.get_rect(center=(ancho // 2, alto - 60)))
+
+        texto_tactil = fuente_mini.render("Toca la pantalla para volver", True, AZUL_APAGADO)
+        pantalla.blit(texto_tactil, texto_tactil.get_rect(center=(ancho // 2, alto - 32)))
 
         pygame.display.flip()
 
