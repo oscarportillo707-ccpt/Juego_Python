@@ -33,6 +33,7 @@ from rutas import ruta_recurso
 from musica import ruta_musica
 from pantallas import pantalla_modos, pantalla_logros, total_trofeos
 from controles_tactiles import ControlesTactiles
+from adaptacion_pantalla import presentar
 
 
 # ==========================================================
@@ -80,10 +81,8 @@ pygame.display.set_icon(
     pygame.image.load(ruta_recurso("icono.png"))
 )
 
-pantalla = pygame.display.set_mode(
-    (ANCHO, ALTO),
-    getattr(pygame, "SCALED", 0)
-)
+ventana = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+pantalla = pygame.Surface((ANCHO, ALTO))
 
 pygame.display.set_caption(
     "Expedición 33"
@@ -246,6 +245,11 @@ def pantalla_inicio(pantalla, ancho, alto, reloj, fps):
     # Opción seleccionada: 0 = SÍ, 1 = LOGROS, 2 = NO
     opcion = 0
     controles_menu = ControlesTactiles(ancho, alto)
+    zonas = [
+        pygame.Rect(30 + i * (ancho - 60) // 3, 435,
+                    (ancho - 60) // 3, 90)
+        for i in range(3)
+    ]
 
     # Mejor récord de todos los modos y trofeos ganados
     mejor_record = max(
@@ -284,22 +288,8 @@ def pantalla_inicio(pantalla, ancho, alto, reloj, fps):
                     return False
                 continue
 
-            if toque is not None and toque[0] == "swipe":
-                if toque[1] in ("izquierda", "arriba"):
-                    opcion = (opcion - 1) % 3
-                else:
-                    opcion = (opcion + 1) % 3
-                sonidos["mover"].play()
-                continue
-
             if toque is not None and toque[0] == "down":
                 _, posicion = toque
-                # Las tres opciones tienen una zona amplia para dedos.
-                zonas = [
-                    pygame.Rect(40, 435, ancho // 3 - 12, 90),
-                    pygame.Rect(ancho // 3, 435, ancho // 3, 90),
-                    pygame.Rect(2 * ancho // 3 + 12, 435, ancho // 3 - 52, 90),
-                ]
                 for indice, zona in enumerate(zonas):
                     if zona.collidepoint(posicion):
                         opcion = indice
@@ -374,7 +364,7 @@ def pantalla_inicio(pantalla, ancho, alto, reloj, fps):
         # Nave de adorno
         nave.dibujar(pantalla)
 
-        marco = pygame.Rect(30, 30, ANCHO - 60, ALTO - 60)
+        marco = pygame.Rect(30, 30, ancho - 60, alto - 60)
         pygame.draw.rect(pantalla, AZUL_APAGADO, marco, 4, border_radius=30)
 
         
@@ -455,7 +445,10 @@ def pantalla_inicio(pantalla, ancho, alto, reloj, fps):
  
         opciones = ["SÍ", "LOGROS", "NO"]
 
-        posiciones = [ancho // 2 - 160, ancho // 2 - 10, ancho // 2 + 150]
+        posiciones = [
+            30 + (i * 2 + 1) * (ancho - 60) // 6
+            for i in range(3)
+        ]
 
         for i in range(3):
  
@@ -496,15 +489,14 @@ def pantalla_inicio(pantalla, ancho, alto, reloj, fps):
 
         # En Android las opciones son botones táctiles; se mantiene la
         # navegación por teclado para ordenador y dispositivos con teclado.
-        for indice, x in enumerate((ancho // 2 - 160, ancho // 2 - 10, ancho // 2 + 150)):
-            zona = pygame.Rect(x - 65, 435, 130, 90)
+        for indice, zona in enumerate(zonas):
             pygame.draw.rect(pantalla, (255, 170, 50, 28), zona, 2, border_radius=12)
  
         # ==================================================
         # ACTUALIZAR PANTALLA
         # ==================================================
  
-        pygame.display.flip()
+        presentar(pantalla)
  
         reloj.tick(fps)
 
@@ -1208,33 +1200,29 @@ def dibujar_pausa():
     sombra = fuente_titulo.render("PAUSA", True, NARANJA_SOMBRA)
     titulo = fuente_titulo.render("PAUSA", True, NARANJA)
 
-    rect = titulo.get_rect(center=(ANCHO // 2, ALTO // 2 - 60))
+    rect = titulo.get_rect(center=(ANCHO // 2, max(90, ALTO // 5)))
 
     pantalla.blit(sombra, rect.move(5, 5))
     pantalla.blit(titulo, rect)
 
-    lineas = [
-        "P o ESC para continuar",
-        "M para volver al menú",
-        "Q para salir del juego"
-    ]
-
-    for i, linea in enumerate(lineas):
-
-        texto = fuente_pequeña.render(linea, True, CREMA)
-
-        pantalla.blit(
-            texto,
-            texto.get_rect(center=(ANCHO // 2, ALTO // 2 + 20 + i * 35))
-        )
-
-    # Botones táctiles equivalentes a continuar, menú y salir.
-    botones = [(335, "CONTINUAR"), (405, "MENÚ"), (475, "SALIR")]
-    for y, etiqueta in botones:
-        rect = pygame.Rect(130, y, 340, 55)
+    for rect, etiqueta in botones_pausa():
         pygame.draw.rect(pantalla, (255, 170, 50), rect, 2, border_radius=12)
         texto = fuente_pequeña.render(etiqueta, True, CREMA)
         pantalla.blit(texto, texto.get_rect(center=rect.center))
+
+
+def botones_pausa():
+    """Devuelve los mismos botones para dibujar y para detectar toques."""
+    margen = max(30, ANCHO // 12)
+    ancho = ANCHO - margen * 2
+    alto_boton = max(52, min(76, ALTO // 10))
+    separacion = max(12, alto_boton // 4)
+    inicio = max(ALTO // 3, ALTO - (alto_boton * 3 + separacion * 2) - ALTO // 10)
+
+    return [
+        (pygame.Rect(margen, inicio + i * (alto_boton + separacion), ancho, alto_boton), etiqueta)
+        for i, etiqueta in enumerate(("CONTINUAR", "MENÚ", "SALIR"))
+    ]
 
 
 def dibujar_trofeo_ganado():
@@ -1403,7 +1391,7 @@ def dibujar_trofeo_ganado():
 
         pantalla.blit(
             texto_seguir,
-            texto_seguir.get_rect(center=(cx, ALTO - 35))
+            texto_seguir.get_rect(midbottom=(cx, ALTO - 24))
         )
 
 
@@ -1572,25 +1560,9 @@ while ejecutando:
         if toque is not None and toque[0] == "swipe":
             gesto = toque[1]
             if estado == "jugando" and gesto in ("izquierda", "derecha"):
-                # Un deslizamiento horizontal desplaza la nave de forma
-                # equivalente a varias pulsaciones, sin dejar dedos virtuales
-                # atascados si Android pierde FINGERUP.
                 jugador.rect.x += 90 if gesto == "derecha" else -90
                 jugador.rect.left = max(0, jugador.rect.left)
                 jugador.rect.right = min(ANCHO, jugador.rect.right)
-            elif estado == "pausa" and gesto == "abajo":
-                continuar()
-                pygame.mixer.music.unpause()
-            elif estado == "trofeo":
-                if pygame.time.get_ticks() - inicio_pausa > 1000:
-                    continuar()
-            elif estado == "game_over":
-                if gesto in ("izquierda", "arriba"):
-                    opcion_game_over = (opcion_game_over - 1) % 3
-                    sonidos["mover"].play()
-                elif gesto in ("derecha", "abajo"):
-                    opcion_game_over = (opcion_game_over + 1) % 3
-                    sonidos["mover"].play()
             continue
 
         if toque is not None and toque[0] == "motion" and estado == "jugando":
@@ -1604,15 +1576,15 @@ while ejecutando:
             _, posicion = toque
 
             if estado == "pausa":
-                # Tres botones grandes y fáciles de localizar en tablets.
-                if pygame.Rect(130, 335, 340, 70).collidepoint(posicion):
+                botones = botones_pausa()
+                if botones[0][0].collidepoint(posicion):
                     continuar()
                     pygame.mixer.music.unpause()
                     sonidos["pausa"].play()
-                elif pygame.Rect(130, 405, 340, 70).collidepoint(posicion):
+                elif botones[1][0].collidepoint(posicion):
                     if not volver_al_menu():
                         ejecutando = False
-                elif pygame.Rect(130, 475, 340, 70).collidepoint(posicion):
+                elif botones[2][0].collidepoint(posicion):
                     ejecutando = False
 
             elif estado == "trofeo":
@@ -2438,7 +2410,7 @@ while ejecutando:
     # ACTUALIZAR PANTALLA
     # ======================================================
 
-    pygame.display.flip()
+    presentar(pantalla)
 
 
     # Mantener 60 FPS

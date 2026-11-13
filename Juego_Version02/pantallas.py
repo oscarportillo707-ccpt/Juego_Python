@@ -23,6 +23,7 @@ from progreso import (
     dibujar_coleccion
 )
 from controles_tactiles import ControlesTactiles
+from adaptacion_pantalla import presentar
 
 
 # ==========================================================
@@ -149,39 +150,47 @@ def pantalla_modos(pantalla, reloj, fps, progreso, sonidos, modo_inicial="basico
             if toque is not None and toque[0] == "back":
                 return None
 
-            if toque is not None and toque[0] == "swipe":
-                if toque[1] == "izquierda":
-                    seleccion = (seleccion - 1) % len(ORDEN_MODOS)
-                elif toque[1] == "derecha":
-                    seleccion = (seleccion + 1) % len(ORDEN_MODOS)
-                elif toque[1] == "arriba":
-                    indice_color = (indice_color - 1) % len(colores_disponibles)
-                else:
-                    indice_color = (indice_color + 1) % len(colores_disponibles)
-                sonidos["mover"].play()
-                continue
-
             if toque is not None and toque[0] == "down":
                 _, posicion = toque
-                if 115 <= posicion[1] <= 425:
-                    x_inicio_touch = (ancho - (160 * 3 + 15 * 2)) // 2
-                    indice = max(0, min(len(ORDEN_MODOS) - 1, (posicion[0] - x_inicio_touch) // 175))
-                    if x_inicio_touch <= posicion[0] <= x_inicio_touch + 3 * 160 + 2 * 15:
-                        seleccion = int(indice)
+                ancho_tarjeta = 160
+                separacion = 15
+                x_inicio_touch = (ancho - (ancho_tarjeta * 3 + separacion * 2)) // 2
+                tarjetas = [
+                    pygame.Rect(
+                        x_inicio_touch + i * (ancho_tarjeta + separacion),
+                        115,
+                        ancho_tarjeta,
+                        310,
+                    )
+                    for i in range(3)
+                ]
+                for indice, tarjeta in enumerate(tarjetas):
+                    if tarjeta.collidepoint(posicion):
+                        seleccion = indice
                         sonidos["mover"].play()
-                elif 515 <= posicion[1] <= 625:
-                    if posicion[1] < 570:
-                        indice_color = (indice_color - 1) % len(colores_disponibles)
-                    else:
-                        indice_color = (indice_color + 1) % len(colores_disponibles)
-                    sonidos["mover"].play()
-                elif posicion[1] > alto - 115:
-                    modo = ORDEN_MODOS[seleccion]
-                    if modo_desbloqueado(progreso, modo):
-                        progreso["color_nave"] = colores_disponibles[indice_color]
-                        guardar_progreso(progreso)
-                        sonidos["elegir"].play()
-                        return modo
+                        break
+                else:
+                    zona_color = pygame.Rect(ancho // 2 - 150, 500, 300, 85)
+                    zona_jugar = pygame.Rect(30, alto - 125, ancho - 60, 105)
+                    if zona_color.collidepoint(posicion):
+                        if posicion[1] < 542:
+                            indice_color = (indice_color - 1) % len(colores_disponibles)
+                        else:
+                            indice_color = (indice_color + 1) % len(colores_disponibles)
+                        sonidos["mover"].play()
+                    elif zona_jugar.collidepoint(posicion):
+                        modo = ORDEN_MODOS[seleccion]
+                        if modo_desbloqueado(progreso, modo):
+                            progreso["color_nave"] = colores_disponibles[indice_color]
+                            guardar_progreso(progreso)
+                            sonidos["elegir"].play()
+                            return modo
+                    elif 515 <= posicion[1] <= 625:
+                        if posicion[1] < 570:
+                            indice_color = (indice_color - 1) % len(colores_disponibles)
+                        else:
+                            indice_color = (indice_color + 1) % len(colores_disponibles)
+                        sonidos["mover"].play()
 
             if evento.type == pygame.KEYDOWN:
 
@@ -410,20 +419,16 @@ def pantalla_modos(pantalla, reloj, fps, progreso, sonidos, modo_inicial="basico
         # AYUDA
         # ==================================================
 
-        lineas = [
-            "Izquierda / Derecha: modo     Arriba / Abajo: color",
-            "ENTER jugar      ESC volver"
-        ]
-
-        for i, linea in enumerate(lineas):
-
-            texto = fuente_pequena.render(linea, True, AZUL_APAGADO)
-            pantalla.blit(texto, texto.get_rect(center=(ancho // 2, alto - 92 + i * 26)))
-
         texto_tactil = fuente_mini.render("Toca una tarjeta, el color o JUGAR", True, AZUL_APAGADO)
-        pantalla.blit(texto_tactil, texto_tactil.get_rect(center=(ancho // 2, alto - 35)))
+        rect_ayuda = texto_tactil.get_rect()
+        rect_ayuda.centerx = ancho // 2
+        rect_ayuda.bottom = alto - 42
+        pantalla.blit(
+            texto_tactil,
+            rect_ayuda
+        )
 
-        pygame.display.flip()
+        presentar(pantalla)
 
         reloj.tick(fps)
 
@@ -456,7 +461,7 @@ def pantalla_logros(pantalla, reloj, fps, progreso, sonidos):
                 return
 
             toque = controles_menu.evento(evento)
-            if toque is not None and toque[0] in ("back", "swipe", "down"):
+            if toque is not None and toque[0] in ("back", "down"):
                 sonidos["elegir"].play()
                 return
 
@@ -596,11 +601,15 @@ def pantalla_logros(pantalla, reloj, fps, progreso, sonidos):
                 pantalla.blit(texto, texto.get_rect(center=(cx, 606)))
 
         texto = fuente_pequena.render("ESC o ENTER para volver", True, AZUL_APAGADO)
-        pantalla.blit(texto, texto.get_rect(center=(ancho // 2, alto - 60)))
+        rect_ayuda = texto.get_rect(center=(ancho // 2, alto - 60))
+        rect_ayuda.bottom = alto - 42
+        pantalla.blit(texto, rect_ayuda)
 
         texto_tactil = fuente_mini.render("Toca la pantalla para volver", True, AZUL_APAGADO)
-        pantalla.blit(texto_tactil, texto_tactil.get_rect(center=(ancho // 2, alto - 32)))
+        rect_tactil = texto_tactil.get_rect(center=(ancho // 2, alto - 24))
+        rect_tactil.bottom = alto - 14
+        pantalla.blit(texto_tactil, rect_tactil)
 
-        pygame.display.flip()
+        presentar(pantalla)
 
         reloj.tick(fps)
