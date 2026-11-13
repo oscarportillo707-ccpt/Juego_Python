@@ -3,6 +3,9 @@ import random
 
 from rutas import ruta_recurso
 
+_imagen_meteorito = None
+_imagenes_meteorito = {}
+
 
 class Obstaculo:
 
@@ -32,7 +35,13 @@ class Obstaculo:
         self.y = float(y)
 
         # Imagen del obstáculo
-        self.imagen_original = pygame.image.load(ruta_recurso("meteorito.png")).convert_alpha()
+        global _imagen_meteorito
+        if _imagen_meteorito is None:
+            _imagen_meteorito = pygame.image.load(
+                ruta_recurso("meteorito.png")
+            ).convert_alpha()
+
+        self.imagen_original = _imagen_meteorito
         self.imagen = self.imagen_original
 
         # Cada meteorito es distinto
@@ -52,10 +61,14 @@ class Obstaculo:
         self.angulo = random.uniform(0, 360)
         self.giro = random.uniform(-3, 3)
 
-        self.imagen = pygame.transform.smoothscale(
-            self.imagen_original,
-            (self.ancho, self.alto)
-        )
+        tamaño = (self.ancho, self.alto)
+        self.imagen = _imagenes_meteorito.get(tamaño)
+        if self.imagen is None:
+            self.imagen = pygame.transform.smoothscale(
+                self.imagen_original,
+                tamaño
+            )
+            _imagenes_meteorito[tamaño] = self.imagen
 
         centro_x = self.rect.centerx
 
@@ -70,7 +83,7 @@ class Obstaculo:
         else:
             self.deriva = 0
 
-    def actualizar(self, velocidad):
+    def actualizar(self, velocidad, factor_tiempo=1.0):
 
         # Actualizar posición vertical
         self.y += velocidad * self.factor_velocidad
@@ -80,7 +93,7 @@ class Obstaculo:
         # Zigzag: rebota en los bordes de la pantalla
         if self.deriva != 0:
 
-            self.x += self.deriva
+            self.x += self.deriva * factor_tiempo
 
             if self.x < 0:
                 self.x = 0

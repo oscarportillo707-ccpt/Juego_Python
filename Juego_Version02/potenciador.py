@@ -2,6 +2,9 @@ import math
 import random
 import pygame
 
+_fuente_potenciador = pygame.font.Font(None, 26)
+_auras = {}
+
 
 class Potenciador:
 
@@ -66,17 +69,20 @@ class Potenciador:
             "arma": (255, 150, 40, 80),
         }
 
-        aura = pygame.Surface(
-            (radio_aura * 2, radio_aura * 2),
-            pygame.SRCALPHA
-        )
-
-        pygame.draw.circle(
-            aura,
-            colores_aura[self.tipo],
-            (radio_aura, radio_aura),
-            radio_aura
-        )
+        clave_aura = (self.tipo, radio_aura)
+        aura = _auras.get(clave_aura)
+        if aura is None:
+            aura = pygame.Surface(
+                (radio_aura * 2, radio_aura * 2),
+                pygame.SRCALPHA
+            )
+            pygame.draw.circle(
+                aura,
+                colores_aura[self.tipo],
+                (radio_aura, radio_aura),
+                radio_aura
+            )
+            _auras[clave_aura] = aura
 
         pantalla.blit(aura, (cx - radio_aura, cy - radio_aura))
 
@@ -131,8 +137,7 @@ class Potenciador:
 
         if ancho > 14:
 
-            fuente = pygame.font.Font(None, 26)
-            texto = fuente.render("5", True, (160, 100, 0))
+            texto = _fuente_potenciador.render("5", True, (160, 100, 0))
             pantalla.blit(texto, texto.get_rect(center=(cx, cy + 1)))
 
     def dibujar_corazon(self, pantalla, cx, cy):

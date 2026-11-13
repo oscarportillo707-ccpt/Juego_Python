@@ -5,6 +5,10 @@ import pygame
 
 from rutas import ruta_recurso
 
+_capas_iman = {}
+_capa_escudo = None
+_imagen_jugador_base = None
+_imagenes_jugador_teñidas = {}
 
 def teñir_imagen(imagen, tinte):
 
@@ -65,16 +69,25 @@ class Jugador:
         self.velocidad = 7
 
         # Imagen de la nave 
-        self.imagen = pygame.image.load(ruta_recurso("jugador.png")).convert_alpha()
-        pygame.draw.rect(
-            self.imagen,
-            (0, 0, 0, 0),
-            (22, 57, 16, 13)
-        )
+        global _imagen_jugador_base
+        if _imagen_jugador_base is None:
+            _imagen_jugador_base = pygame.image.load(
+                ruta_recurso("jugador.png")
+            ).convert_alpha()
+            pygame.draw.rect(
+                _imagen_jugador_base,
+                (0, 0, 0, 0),
+                (22, 57, 16, 13)
+            )
+
+        self.imagen = _imagen_jugador_base
 
         # Color de la nave
         if tinte is not None:
-            self.imagen = teñir_imagen(self.imagen, tinte)
+            self.imagen = _imagenes_jugador_teñidas.get(tinte)
+            if self.imagen is None:
+                self.imagen = teñir_imagen(_imagen_jugador_base, tinte)
+                _imagenes_jugador_teñidas[tinte] = self.imagen
 
         # Tiempo de la partida (en segundos)
         self.tiempo_juego = 0
@@ -134,15 +147,24 @@ class Jugador:
             (self.rect.right - 9, self.rect.top + 30)
         ]
 
-    def mover(self, teclas, ancho_pantalla, tactil_izquierda=False, tactil_derecha=False):
+    def mover(
+        self,
+        teclas,
+        ancho_pantalla,
+        tactil_izquierda=False,
+        tactil_derecha=False,
+        factor_tiempo=1.0
+    ):
+
+        desplazamiento = self.velocidad * factor_tiempo
 
         # Mover a la izquierda
         if teclas[pygame.K_LEFT] or teclas[pygame.K_a] or tactil_izquierda:
-            self.rect.x -= self.velocidad
+            self.rect.x -= desplazamiento
 
         # Mover a la derecha
         if teclas[pygame.K_RIGHT] or teclas[pygame.K_d] or tactil_derecha:
-            self.rect.x += self.velocidad
+            self.rect.x += desplazamiento
 
         # Evitar salir por la izquierda
         if self.rect.left < 0:
@@ -162,15 +184,17 @@ class Jugador:
 
             radio = 50 + int((tiempo // 4) % 40)
 
-            capa = pygame.Surface((radio * 2, radio * 2), pygame.SRCALPHA)
-
-            pygame.draw.circle(
-                capa,
-                (200, 90, 255, 90),
-                (radio, radio),
-                radio,
-                2
-            )
+            capa = _capas_iman.get(radio)
+            if capa is None:
+                capa = pygame.Surface((radio * 2, radio * 2), pygame.SRCALPHA)
+                pygame.draw.circle(
+                    capa,
+                    (200, 90, 255, 90),
+                    (radio, radio),
+                    radio,
+                    2
+                )
+                _capas_iman[radio] = capa
 
             pantalla.blit(
                 capa,
@@ -206,13 +230,14 @@ class Jugador:
 
                 radio = 48
 
-                capa = pygame.Surface((radio * 2, radio * 2), pygame.SRCALPHA)
-
-                pygame.draw.circle(capa, (80, 200, 255, 50), (radio, radio), radio)
-                pygame.draw.circle(capa, (170, 235, 255, 180), (radio, radio), radio, 3)
+                global _capa_escudo
+                if _capa_escudo is None:
+                    _capa_escudo = pygame.Surface((radio * 2, radio * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(_capa_escudo, (80, 200, 255, 50), (radio, radio), radio)
+                    pygame.draw.circle(_capa_escudo, (170, 235, 255, 180), (radio, radio), radio, 3)
 
                 pantalla.blit(
-                    capa,
+                    _capa_escudo,
                     (self.rect.centerx - radio, self.rect.centery - radio)
                 )
 

@@ -127,6 +127,10 @@ fuente_pequeña = pygame.font.Font(
     None,
     28
 )
+fuentes_combo = {
+    tamaño: pygame.font.Font(None, tamaño)
+    for tamaño in range(29, 36)
+}
 
 
 # ==========================================================
@@ -605,6 +609,8 @@ VELOCIDAD_BALA = 12
 
 # Lienzo donde se dibuja el juego (para poder sacudir la pantalla)
 lienzo = pygame.Surface((ANCHO, ALTO))
+brillo_bala = pygame.Surface((18, 30), pygame.SRCALPHA)
+pygame.draw.ellipse(brillo_bala, (255, 190, 80, 120), (0, 0, 18, 30))
 controles_tactiles = ControlesTactiles(ANCHO, ALTO)
 
 fuente_titulo = pygame.font.Font(None, 110)
@@ -1037,7 +1043,7 @@ def dibujar_hud():
         # Palpita un poco
         tamaño = 32 + int(math.sin(pygame.time.get_ticks() * 0.01) * 3)
 
-        fuente_combo = pygame.font.Font(None, tamaño)
+        fuente_combo = fuentes_combo[tamaño]
 
         texto_combo = fuente_combo.render(
             f"COMBO x{multiplicador}",
@@ -1733,20 +1739,21 @@ while ejecutando:
 
         # Mantiene el movimiento aunque un teléfono tarde más en dibujar
         # un cuadro. En condiciones normales vale 1.0.
-        factor_tiempo = max(
-            0.5,
-            min(3.0, reloj.get_time() / (1000 / FPS))
+        milisegundos_frame = reloj.get_time()
+        if milisegundos_frame <= 0:
+            factor_tiempo = 1.0
+        else:
+            factor_tiempo = milisegundos_frame / (1000 / FPS)
+
+        jugador.mover(
+            teclas,
+            ANCHO,
+            factor_tiempo=factor_tiempo
         )
 
         # --------------------------------------------------
         # MOVIMIENTO DEL JUGADOR
         # --------------------------------------------------
-
-        jugador.mover(
-            teclas,
-            ANCHO
-        )
-
 
         # --------------------------------------------------
         # CALCULAR TIEMPO
@@ -1886,7 +1893,7 @@ while ejecutando:
                     moneda.atraer(
                         jugador.rect.centerx,
                         jugador.rect.centery,
-                        8
+                        8 * factor_tiempo
                     )
 
 
@@ -1957,7 +1964,8 @@ while ejecutando:
                 continue
 
             obstaculo.actualizar(
-                velocidad_objetos * factor_tiempo
+                velocidad_objetos * factor_tiempo,
+                factor_tiempo
             )
 
 
@@ -2330,9 +2338,7 @@ while ejecutando:
         x = int(bala["x"])
         y = int(bala["y"])
 
-        brillo = pygame.Surface((18, 30), pygame.SRCALPHA)
-        pygame.draw.ellipse(brillo, (255, 190, 80, 120), (0, 0, 18, 30))
-        lienzo.blit(brillo, (x - 9, y - 15))
+        lienzo.blit(brillo_bala, (x - 9, y - 15))
 
         pygame.draw.ellipse(lienzo, (255, 210, 70), (x - 4, y - 10, 8, 20))
         pygame.draw.ellipse(lienzo, (255, 255, 230), (x - 2, y - 7, 4, 12))

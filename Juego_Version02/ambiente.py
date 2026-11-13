@@ -79,6 +79,9 @@ class Ambiente:
         # ==================================================
 
         self.tema = "basico"
+        self._fondo_cache = pygame.Surface((ancho, alto))
+        self._fondo_cache_key = None
+        self._iluminacion_cache = {}
 
     # ======================================================
     # CAMBIAR EL TEMA
@@ -212,6 +215,11 @@ class Ambiente:
         color_arriba, color_abajo = (
             self.obtener_colores_fondo()
         )
+        cache_key = (color_arriba, color_abajo)
+
+        if cache_key == self._fondo_cache_key:
+            pantalla.blit(self._fondo_cache, (0, 0))
+            return
 
         # Zona superior del juego
         altura_fondo = self.alto
@@ -245,11 +253,14 @@ class Ambiente:
             )
 
             pygame.draw.line(
-                pantalla,
+                self._fondo_cache,
                 (rojo, verde, azul),
                 (0, y),
                 (self.ancho, y)
             )
+
+        self._fondo_cache_key = cache_key
+        pantalla.blit(self._fondo_cache, (0, 0))
 
     # ======================================================
     # DIBUJAR ESTRELLAS
@@ -326,16 +337,6 @@ class Ambiente:
         del jugador.
         """
 
-        capa = pygame.Surface(
-            (self.ancho, self.alto),
-            pygame.SRCALPHA
-        )
-
-        # Oscurecimiento general muy suave
-        capa.fill(
-            (0, 0, 20, 35)
-        )
-
         # Centro de iluminación
         centro_x = jugador.rect.centerx
         centro_y = jugador.rect.centery
@@ -345,29 +346,24 @@ class Ambiente:
             self.LUZ_TEMAS["basico"]
         )
 
-        # Crear varios círculos transparentes
-        for radio in range(180, 20, -20):
+        capa = self._iluminacion_cache.get(luz)
+        if capa is None:
+            capa = pygame.Surface((360, 360), pygame.SRCALPHA)
+            capa.fill((0, 0, 20, 35))
 
-            transparencia = int(
-                2 + (180 - radio) * 0.10
-            )
-
-            pygame.draw.circle(
-                capa,
-                (
-                    *luz,
-                    transparencia
-                ),
-                (
-                    centro_x,
-                    centro_y
-                ),
-                radio
-            )
+            for radio in range(180, 20, -20):
+                transparencia = int(2 + (180 - radio) * 0.10)
+                pygame.draw.circle(
+                    capa,
+                    (*luz, transparencia),
+                    (180, 180),
+                    radio
+                )
+            self._iluminacion_cache[luz] = capa
 
         pantalla.blit(
             capa,
-            (0, 0)
+            (centro_x - 180, centro_y - 180)
         )
 
     # ======================================================
@@ -407,10 +403,9 @@ class Ambiente:
                 min(255, alpha)
             )
 
-            capa = pygame.Surface(
-                (self.ancho, self.alto),
-                pygame.SRCALPHA
-            )
+            radio = int(efecto["radio"])
+            tamaño = radio * 2 + 6
+            capa = pygame.Surface((tamaño, tamaño), pygame.SRCALPHA)
 
             pygame.draw.circle(
                 capa,
@@ -421,16 +416,16 @@ class Ambiente:
                     alpha
                 ),
                 (
-                    int(efecto["x"]),
-                    int(efecto["y"])
+                    tamaño // 2,
+                    tamaño // 2
                 ),
-                int(efecto["radio"]),
+                radio,
                 3
             )
 
             pantalla.blit(
                 capa,
-                (0, 0)
+                (int(efecto["x"]) - tamaño // 2, int(efecto["y"]) - tamaño // 2)
             )
 
     # ======================================================
@@ -470,10 +465,10 @@ class Ambiente:
                 min(255, alpha)
             )
 
-            capa = pygame.Surface(
-                (self.ancho, self.alto),
-                pygame.SRCALPHA
-            )
+            radio = int(efecto["radio"])
+            tamaño = (radio + 12) * 2
+            centro = tamaño // 2
+            capa = pygame.Surface((tamaño, tamaño), pygame.SRCALPHA)
 
             # Círculo exterior
             pygame.draw.circle(
@@ -484,49 +479,34 @@ class Ambiente:
                     60,
                     alpha
                 ),
-                (
-                    int(efecto["x"]),
-                    int(efecto["y"])
-                ),
-                int(efecto["radio"]),
+                (centro, centro),
+                radio,
                 4
             )
 
             # Líneas de impacto
-            centro_x = int(
-                efecto["x"]
-            )
-
-            centro_y = int(
-                efecto["y"]
-            )
-
-            radio = int(
-                efecto["radio"]
-            )
-
             for i in range(8):
 
                 angulo = (
                     i * math.pi / 4
                 )
 
-                x1 = centro_x + int(
+                x1 = centro + int(
                     math.cos(angulo)
                     * radio
                 )
 
-                y1 = centro_y + int(
+                y1 = centro + int(
                     math.sin(angulo)
                     * radio
                 )
 
-                x2 = centro_x + int(
+                x2 = centro + int(
                     math.cos(angulo)
                     * (radio + 10)
                 )
 
-                y2 = centro_y + int(
+                y2 = centro + int(
                     math.sin(angulo)
                     * (radio + 10)
                 )
@@ -546,7 +526,7 @@ class Ambiente:
 
             pantalla.blit(
                 capa,
-                (0, 0)
+                (int(efecto["x"]) - centro, int(efecto["y"]) - centro)
             )
 
     # ======================================================
