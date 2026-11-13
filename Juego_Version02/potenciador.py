@@ -2,8 +2,17 @@ import math
 import random
 import pygame
 
-_fuente_potenciador = pygame.font.Font(None, 26)
+_fuente_potenciador = None
 _auras = {}
+
+
+def _obtener_fuente_potenciador():
+    global _fuente_potenciador
+
+    if _fuente_potenciador is None:
+        _fuente_potenciador = pygame.font.Font(None, 26)
+
+    return _fuente_potenciador
 
 
 class Potenciador:
@@ -137,7 +146,11 @@ class Potenciador:
 
         if ancho > 14:
 
-            texto = _fuente_potenciador.render("5", True, (160, 100, 0))
+            texto = _obtener_fuente_potenciador().render(
+                "5",
+                True,
+                (160, 100, 0)
+            )
             pantalla.blit(texto, texto.get_rect(center=(cx, cy + 1)))
 
     def dibujar_corazon(self, pantalla, cx, cy):
