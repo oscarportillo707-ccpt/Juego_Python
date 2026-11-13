@@ -1731,6 +1731,13 @@ while ejecutando:
 
     if estado == "jugando":
 
+        # Mantiene el movimiento aunque un teléfono tarde más en dibujar
+        # un cuadro. En condiciones normales vale 1.0.
+        factor_tiempo = max(
+            0.5,
+            min(3.0, reloj.get_time() / (1000 / FPS))
+        )
+
         # --------------------------------------------------
         # MOVIMIENTO DEL JUGADOR
         # --------------------------------------------------
@@ -1862,7 +1869,7 @@ while ejecutando:
         for moneda in monedas:
 
             moneda.actualizar(
-                velocidad_objetos
+                velocidad_objetos * factor_tiempo
             )
 
 
@@ -1950,7 +1957,7 @@ while ejecutando:
                 continue
 
             obstaculo.actualizar(
-                velocidad_objetos
+                velocidad_objetos * factor_tiempo
             )
 
 
@@ -2105,7 +2112,7 @@ while ejecutando:
 
         for potenciador in potenciadores[:]:
 
-            potenciador.actualizar(velocidad_objetos)
+            potenciador.actualizar(velocidad_objetos * factor_tiempo)
 
             if potenciador.esta_fuera(ALTO):
 
